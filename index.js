@@ -1,8 +1,13 @@
 const express = require('express');
 const winston = require('winston');
 const bodyParser = require('body-parser')
+const session = require('express-session')
 const { combine, timestamp } = winston.format;
 const compression = require('compression');
+const passport = require('passport')
+const SequelizeStore = require('connect-session-sequelize')(session.Store)
+const db = require('./db')
+const sessionStore = new SequelizeStore({db})
 const PORT = process.env.PORT || 3000;
 
 
@@ -11,6 +16,20 @@ const app = express();
 app.use(compression())
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended: true}))
+
+//session
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'my session secret',
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false
+  })
+)
+app.use(passport.initialize())
+app.use(passport.session())
+
+if (process.env.NODE_ENV !== 'production') require('./secrets.js')
 
 const logger = winston.createLogger({
     level: 'info',
@@ -49,3 +68,6 @@ const logger = winston.createLogger({
 app.listen(PORT, () => {
     logger.info(`server has start on port: ${PORT}`)
 })
+
+const syncDb = async () => await db.sync()
+syncDb()
